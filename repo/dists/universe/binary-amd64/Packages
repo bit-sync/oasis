@@ -2,7 +2,7 @@ Package: hex
 Version: 1.2
 Architecture: amd64
 Maintainer: Your Name <youremail@example.com>
-Filename: ./hex-amd64-1.2.deb
+Filename: pool/universe/h/hex/hex-amd64-1.2.deb
 Size: 17264
 MD5sum: 6fcffc9ce21164fee8bfbc7b84307691
 SHA1: b644444c129f4982d8731ff9526c020433e36d44

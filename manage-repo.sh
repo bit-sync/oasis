@@ -1,8 +1,8 @@
 #!/bin/bash
 
 REPO_DIR="repo"
-DIST="stable"
 ARCH="amd64"
+REPO_URL="https://oasis.bitsyncdev.com"
 
 # Function to show usage
 usage() {
@@ -13,6 +13,7 @@ usage() {
     echo "  update COMPONENT            Update package indices for a component"
     echo "  update-all                  Update all components"
     echo "  list                        List all components"
+    echo "  sources                     Generate sources.list entry"
     echo
     echo "Options:"
     echo "  -h, --help                 Show this help message"
@@ -29,42 +30,59 @@ create_component() {
     
     echo "Creating component: $component"
     mkdir -p "${REPO_DIR}/pool/${component}"
-    mkdir -p "${REPO_DIR}/dists/${DIST}/${component}/binary-${ARCH}"
+    mkdir -p "${REPO_DIR}/dists/${component}/binary-${ARCH}"
     
     echo "Component '$component' created successfully"
     echo "Place .deb packages in: ${REPO_DIR}/pool/${component}/"
+}
+
+# Function to organize package in pool
+organize_package() {
+    local component=$1
+    local package_file=$2
+    
+    # Extract package name from filename (assumes name-version-arch.deb format)
+    local package_name=$(echo "$package_file" | sed -E 's/^([^_-]+).*/\1/')
+    local first_letter="${package_name:0:1}"
+    
+    # Create package directory structure
+    local package_dir="${REPO_DIR}/pool/${component}/${first_letter}/${package_name}"
+    mkdir -p "$package_dir"
+    
+    # Move package to its directory
+    mv "$package_file" "$package_dir/"
+    echo "Organized package $package_file into $package_dir"
 }
 
 # Function to update a single component
 update_component() {
     local component=$1
     
-    if [ ! -d "${REPO_DIR}/pool/${component}" ]; then
-        echo "Error: Component '$component' does not exist"
-        exit 1
-    fi
-    
     echo "Updating component: $component"
     
     # Ensure indices directory exists
     mkdir -p "${REPO_DIR}/indices"
+    mkdir -p "${REPO_DIR}/dists/${component}/binary-${ARCH}"
     
     # Create override file if it doesn't exist
-    OVERRIDE_FILE="${REPO_DIR}/indices/override.${DIST}.${component}"
+    OVERRIDE_FILE="${REPO_DIR}/indices/override.${component}"
     if [ ! -f "$OVERRIDE_FILE" ]; then
         echo "# Format: package_name priority section maintainer" > "$OVERRIDE_FILE"
     fi
     
+    # Find any unorganized packages and organize them
+    find "${REPO_DIR}/pool/${component}" -maxdepth 1 -name "*.deb" -exec bash -c 'organize_package "$0" "$1"' "$component" {} \;
+    
     # Generate Packages file
-    cd "${REPO_DIR}/pool/${component}"
-    if [ -s "../../indices/override.${DIST}.${component}" ]; then
+    cd "${REPO_DIR}"
+    if [ -s "indices/override.${component}" ]; then
         # Use override file if it exists and is not empty
-        dpkg-scanpackages . ../../indices/override.${DIST}.${component} > "../../dists/${DIST}/${component}/binary-${ARCH}/Packages"
+        dpkg-scanpackages "pool/${component}" "indices/override.${component}" > "dists/${component}/binary-${ARCH}/Packages"
     else
         # Skip override file if it doesn't exist or is empty
-        dpkg-scanpackages . /dev/null > "../../dists/${DIST}/${component}/binary-${ARCH}/Packages"
+        dpkg-scanpackages "pool/${component}" /dev/null > "dists/${component}/binary-${ARCH}/Packages"
     fi
-    gzip -kf "../../dists/${DIST}/${component}/binary-${ARCH}/Packages"
+    gzip -kf "dists/${component}/binary-${ARCH}/Packages"
     
     echo "Component '$component' updated successfully"
 }
@@ -81,57 +99,67 @@ list_components() {
 
 # Function to update Release file
 update_release() {
-    # Create dists/stable directory if it doesn't exist
-    mkdir -p "${REPO_DIR}/dists/${DIST}"
-    cd "${REPO_DIR}/dists/${DIST}"
-    
-    # Get all components
     components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
     
-    if [ -z "$components" ]; then
-        echo "Warning: No components found in ${REPO_DIR}/pool"
-        return 1
-    fi
-    
-    # Generate Release file
-    cat > Release << EOF
+    # Generate Release file for each component
+    for component in $components; do
+        cd "${REPO_DIR}/dists/${component}"
+        cat > Release << EOF
 Origin: Oasis Repository
 Label: Oasis Repository
-Suite: ${DIST}
-Codename: ${DIST}
-Version: 1.0
-Architectures: ${ARCH}
-Components: $(echo $components | tr ' ' ' ')
+Component: ${component}
+Architecture: ${ARCH}
 Description: Open debian package repository
 Date: $(date -Ru)
 EOF
 
-    # Add file hashes only if there are Packages files
-    if find . -type f -name "Packages*" > /dev/null 2>&1; then
-        {
-            echo "MD5Sum:"
-            find . -type f -name "Packages*" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
-            echo "SHA1:"
-            find . -type f -name "Packages*" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
-            echo "SHA256:"
-            find . -type f -name "Packages*" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
-        } >> Release
-    fi
+        # Add file hashes only if there are Packages files
+        if find . -type f -name "Packages*" > /dev/null 2>&1; then
+            {
+                echo "MD5Sum:"
+                find . -type f -name "Packages*" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                echo "SHA1:"
+                find . -type f -name "Packages*" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                echo "SHA256:"
+                find . -type f -name "Packages*" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+            } >> Release
+        fi
+    done
 }
 
 # Function to update all components
 update_all() {
-    if [ ! -d "${REPO_DIR}/pool" ]; then
-        echo "Error: No components found"
-        exit 1
+    mkdir -p "${REPO_DIR}/pool"
+    
+    components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
+    if [ -z "$components" ]; then
+        echo "No components found in pool directory"
+        exit 0
     fi
     
-    for component in $(ls -1 "${REPO_DIR}/pool"); do
+    for component in $components; do
         update_component "$component"
     done
     
     update_release
     echo "All components updated successfully"
+}
+
+# Function to show sources.list entry
+show_sources_list() {
+    mkdir -p "${REPO_DIR}/pool"
+    
+    components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
+    if [ -z "$components" ]; then
+        echo "# Oasis Repository"
+        echo "# No components available yet"
+        return 0
+    fi
+    
+    echo "# Oasis Repository"
+    for component in $components; do
+        echo "deb ${REPO_URL} ${component} ."
+    done
 }
 
 # Main script logic
@@ -148,6 +176,9 @@ case "$1" in
         ;;
     list)
         list_components
+        ;;
+    sources)
+        show_sources_list
         ;;
     -h|--help)
         usage
