@@ -1,0 +1,14 @@
+[Unit]
+Description=Oasis Debian Repository
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/root/oasis
+Environment="PATH=/root/oasis/venv/bin"
+ExecStart=/root/oasis/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:80 wsgi:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
