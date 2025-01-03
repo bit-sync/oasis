@@ -1,6 +1,5 @@
 #!/bin/bash
 
-REPO_DIR="repo"
 ARCH="amd64"
 REPO_URL="https://oasis.bitsyncdev.com"
 
@@ -29,11 +28,11 @@ create_component() {
     fi
     
     echo "Creating component: $component"
-    mkdir -p "${REPO_DIR}/pool/${component}"
-    mkdir -p "${REPO_DIR}/dists/${component}/binary-${ARCH}"
+    mkdir -p "repo/pool/${component}"
+    mkdir -p "repo/dists/${component}/binary-${ARCH}"
     
     echo "Component '$component' created successfully"
-    echo "Place .deb packages in: ${REPO_DIR}/pool/${component}/"
+    echo "Place .deb packages in: repo/pool/${component}/"
 }
 
 # Function to organize package in pool
@@ -46,7 +45,7 @@ organize_package() {
     local first_letter="${package_name:0:1}"
     
     # Create package directory structure
-    local package_dir="${REPO_DIR}/pool/${component}/${first_letter}/${package_name}"
+    local package_dir="repo/pool/${component}/${first_letter}/${package_name}"
     mkdir -p "$package_dir"
     
     # Move package to its directory
@@ -61,20 +60,19 @@ update_component() {
     echo "Updating component: $component"
     
     # Ensure indices directory exists
-    mkdir -p "${REPO_DIR}/indices"
-    mkdir -p "${REPO_DIR}/dists/${component}/binary-${ARCH}"
+    mkdir -p "indices"
+    mkdir -p "dists/${component}/binary-${ARCH}"
     
     # Create override file if it doesn't exist
-    OVERRIDE_FILE="${REPO_DIR}/indices/override.${component}"
+    OVERRIDE_FILE="indices/override.${component}"
     if [ ! -f "$OVERRIDE_FILE" ]; then
         echo "# Format: package_name priority section maintainer" > "$OVERRIDE_FILE"
     fi
     
     # Find any unorganized packages and organize them
-    find "${REPO_DIR}/pool/${component}" -maxdepth 1 -name "*.deb" -exec bash -c 'organize_package "$0" "$1"' "$component" {} \;
+    find "pool/${component}" -maxdepth 1 -name "*.deb" -exec bash -c 'organize_package "$0" "$1"' "$component" {} \;
     
     # Generate Packages file
-    cd "${REPO_DIR}"
     if [ -s "indices/override.${component}" ]; then
         # Use override file if it exists and is not empty
         dpkg-scanpackages "pool/${component}" "indices/override.${component}" > "dists/${component}/binary-${ARCH}/Packages"
@@ -90,8 +88,8 @@ update_component() {
 # Function to list all components
 list_components() {
     echo "Available components:"
-    if [ -d "${REPO_DIR}/pool" ]; then
-        ls -1 "${REPO_DIR}/pool"
+    if [ -d "repo/pool" ]; then
+        ls -1 "repo/pool"
     else
         echo "No components found"
     fi
@@ -99,11 +97,11 @@ list_components() {
 
 # Function to update Release file
 update_release() {
-    components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
+    components=$(ls -1 "repo/pool" 2>/dev/null || echo "")
     
     # Generate Release file for each component
     for component in $components; do
-        cd "${REPO_DIR}/dists/${component}"
+        cd "repo/dists/${component}"
         cat > Release << EOF
 Origin: Oasis Repository
 Label: Oasis Repository
@@ -129,9 +127,8 @@ EOF
 
 # Function to update all components
 update_all() {
-    mkdir -p "${REPO_DIR}/pool"
-    
-    components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
+    cd repo
+    components=$(ls -1 "pool" 2>/dev/null || echo "")
     if [ -z "$components" ]; then
         echo "No components found in pool directory"
         exit 0
@@ -147,9 +144,9 @@ update_all() {
 
 # Function to show sources.list entry
 show_sources_list() {
-    mkdir -p "${REPO_DIR}/pool"
+    mkdir -p "repo/pool"
     
-    components=$(ls -1 "${REPO_DIR}/pool" 2>/dev/null || echo "")
+    components=$(ls -1 "repo/pool" 2>/dev/null || echo "")
     if [ -z "$components" ]; then
         echo "# Oasis Repository"
         echo "# No components available yet"

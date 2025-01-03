@@ -1,0 +1,15 @@
+Origin: Oasis Repository
+Label: Oasis Repository
+Component: universe
+Architecture: amd64
+Description: Open debian package repository
+Date: Fri, 03 Jan 2025 15:18:26 +0000
+MD5Sum:
+ c14f96faff283a2de2ba5db437931c61 29 ./binary-amd64/Packages.gz
+ d41d8cd98f00b204e9800998ecf8427e 0 ./binary-amd64/Packages
+SHA1:
+ f4a2251bd9ed0478e4daacbc77dc97cb38386404 29 ./binary-amd64/Packages.gz
+ da39a3ee5e6b4b0d3255bfef95601890afd80709 0 ./binary-amd64/Packages
+SHA256:
+ 6ef8443968c36b1ae98ccd706a1f67c875f63bc4c24cc31f0ea2228806ff3af6 29 ./binary-amd64/Packages.gz
+ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 ./binary-amd64/Packages
