@@ -102,26 +102,45 @@ update_release() {
     # Generate Release file for each component
     for component in $components; do
         cd "repo/dists/${component}"
+        
+        # Create empty files to prevent 404s
+        mkdir -p binary-${ARCH}
+        touch binary-${ARCH}/Translation-en
+        touch binary-${ARCH}/Components
+        touch binary-${ARCH}/Contents
+        
+        # Create Release file
         cat > Release << EOF
 Origin: Oasis Repository
 Label: Oasis Repository
-Component: ${component}
-Architecture: ${ARCH}
-Description: Open debian package repository
+Suite: stable
+Codename: ${component}
+Components: .
+Architectures: ${ARCH}
+Description: Oasis Debian Package Repository
 Date: $(date -Ru)
+Acquire-By-Hash: yes
+Languages: en
 EOF
+        
+        # Create InRelease (unsigned Release file)
+        cp Release InRelease
 
         # Add file hashes only if there are Packages files
         if find . -type f -name "Packages*" > /dev/null 2>&1; then
             {
                 echo "MD5Sum:"
-                find . -type f -name "Packages*" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
                 echo "SHA1:"
-                find . -type f -name "Packages*" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
                 echo "SHA256:"
-                find . -type f -name "Packages*" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
             } >> Release
+            # Copy hashes to InRelease as well
+            cp Release InRelease
         fi
+        
+        cd - > /dev/null
     done
 }
 
@@ -155,7 +174,7 @@ show_sources_list() {
     
     echo "# Oasis Repository"
     for component in $components; do
-        echo "deb ${REPO_URL} ${component} ."
+        echo "deb [trusted=yes] ${REPO_URL} ${component} ."
     done
 }
 
