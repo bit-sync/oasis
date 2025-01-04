@@ -1,7 +1,7 @@
 Origin: Oasis Repository
 Label: Oasis Repository
 Suite: stable
-Codename: multiverse
+Codename: universe
 Components: .
 Architectures: amd64
 Description: Oasis Debian Package Repository

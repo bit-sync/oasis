@@ -101,16 +101,14 @@ update_release() {
     
     # Generate Release file for each component
     for component in $components; do
-        cd "repo/dists/${component}"
-        
         # Create empty files to prevent 404s
-        mkdir -p binary-${ARCH}
-        touch binary-${ARCH}/Translation-en
-        touch binary-${ARCH}/Components
-        touch binary-${ARCH}/Contents
+        mkdir -p "repo/dists/${component}/binary-${ARCH}"
+        touch "repo/dists/${component}/binary-${ARCH}/Translation-en"
+        touch "repo/dists/${component}/binary-${ARCH}/Components"
+        touch "repo/dists/${component}/binary-${ARCH}/Contents"
         
-        # Create Release file
-        cat > Release << EOF
+        # Create Release file in component root
+        cat > "repo/dists/${component}/Release" << EOF
 Origin: Oasis Repository
 Label: Oasis Repository
 Suite: stable
@@ -124,30 +122,28 @@ Languages: en
 EOF
         
         # Create InRelease (unsigned Release file)
-        cp Release InRelease
+        cp "repo/dists/${component}/Release" "repo/dists/${component}/InRelease"
 
         # Add file hashes only if there are Packages files
-        if find . -type f -name "Packages*" > /dev/null 2>&1; then
+        if find "repo/dists/${component}/binary-${ARCH}" -type f -name "Packages*" > /dev/null 2>&1; then
             {
                 echo "MD5Sum:"
-                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                (cd "repo/dists/${component}" && find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(md5sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;)
                 echo "SHA1:"
-                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
+                (cd "repo/dists/${component}" && find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha1sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;)
                 echo "SHA256:"
-                find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;
-            } >> Release
+                (cd "repo/dists/${component}" && find . -type f -name "Packages*" -o -name "Translation-en" -exec sh -c 'echo " $(sha256sum "{}" | cut -d" " -f1) $(wc -c < "{}") {}"' \;)
+            } >> "repo/dists/${component}/Release"
             # Copy hashes to InRelease as well
-            cp Release InRelease
+            cp "repo/dists/${component}/Release" "repo/dists/${component}/InRelease"
         fi
-        
-        cd - > /dev/null
     done
 }
 
 # Function to update all components
 update_all() {
-    cd repo
-    components=$(ls -1 "pool" 2>/dev/null || echo "")
+    mkdir -p "repo/pool"
+    components=$(ls -1 "repo/pool" 2>/dev/null || echo "")
     if [ -z "$components" ]; then
         echo "No components found in pool directory"
         exit 0
